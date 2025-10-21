@@ -1,4 +1,3 @@
-#include "uthash.h"
 #include <concord/discord.h>
 #include <concord/log.h>
 #include <sqlite3.h>
@@ -8,13 +7,6 @@
 #include <stdio.h>
 
 #define GUILD_ID 1380548465909698651
-
-struct dict {
-  char* key;
-  UT_hash_handle hh;
-};
-
-struct dict *dictionary = NULL;
 
 sqlite3 *DB;
 
@@ -64,7 +56,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
       return;
 
     sqlite3_stmt *stmt;
-    sqlite3_prepare(DB, "INSERT INTO guild (id, channel, typed_words) VALUES (?1, ?2, '[\"index\"]') ON CONFLICT(id) DO UPDATE SET channel=?2;", -1, &stmt, NULL);
+    sqlite3_prepare(DB, "INSERT INTO guilds (id, channel, typed_words) VALUES (?1, ?2, '[]') ON CONFLICT(id) DO UPDATE SET channel=?2;", -1, &stmt, NULL);
     sqlite3_bind_int64(stmt, 1, event->guild_id);
     sqlite3_bind_int64(stmt, 2, strtoull(event->data->options->array[0].value, NULL, 10));
     int status = sqlite3_step(stmt);
@@ -86,7 +78,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
   } else if (strcmp(event->data->name, "start") == 0) {
 
     sqlite3_stmt *stmt;
-    sqlite3_prepare(DB, "SELECT channel, started FROM guild WHERE id=?1;", -1, &stmt, NULL);
+    sqlite3_prepare(DB, "SELECT channel, started FROM guilds WHERE id=?1;", -1, &stmt, NULL);
     sqlite3_bind_int64(stmt, 1, event->guild_id);
     int status = sqlite3_step(stmt);
 
@@ -122,7 +114,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
       char start_character = rand() % 25 + 97;
 
       sqlite3_finalize(stmt);
-      sqlite3_prepare(DB, "UPDATE guild SET started=TRUE, last_char=?1 WHERE id=?2", -1, &stmt, NULL);
+      sqlite3_prepare(DB, "UPDATE guilds SET started=TRUE, last_char=?1 WHERE id=?2", -1, &stmt, NULL);
       sqlite3_bind_int(stmt, 1, start_character);
       sqlite3_bind_int64(stmt, 2, event->guild_id);
       sqlite3_step(stmt);
@@ -139,7 +131,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
     sqlite3_finalize(stmt);
   } else if (strcmp(event->data->name, "stop") == 0) {
     sqlite3_stmt* stmt;
-    sqlite3_prepare(DB, "UPDATE guild SET started=FALSE, last_user=NULL WHERE id=?1;", -1, &stmt, NULL);
+    sqlite3_prepare(DB, "UPDATE guilds SET started=FALSE, last_user=NULL, typed_words='[]' WHERE id=?1;", -1, &stmt, NULL);
     sqlite3_bind_int64(stmt, 1, event->guild_id);
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -173,7 +165,7 @@ void on_message_create(struct discord* client, const struct discord_message *eve
   if (event->author->bot == true || event->author->System == true) return;
 
   sqlite3_stmt *stmt;
-  sqlite3_prepare(DB, "SELECT channel, last_user, last_char, started FROM guild WHERE id=?1;", -1, &stmt, NULL);
+  sqlite3_prepare(DB, "SELECT channel, last_user, last_char, started FROM guilds WHERE id=?1;", -1, &stmt, NULL);
   sqlite3_bind_int64(stmt, 1, event->guild_id);
   int status = sqlite3_step(stmt);
 
@@ -193,7 +185,7 @@ void on_message_create(struct discord* client, const struct discord_message *eve
       .guild_id = event->guild_id,
       .fail_if_not_exists = true
     };
-    if (false && last_user == event->author->id) {
+    if (last_user == event->author->id) {
       struct discord_create_message create_params = {
         .content = "Not your turn",
         .message_reference = &reference
@@ -203,19 +195,32 @@ void on_message_create(struct discord* client, const struct discord_message *eve
     } else if (isValidWord(event->content)) {
       if (event->content[0] == last_char) {
         sqlite3_finalize(stmt);
-        sqlite3_prepare(DB, "SELECT json_each.value FROM guild, json_each(guild.typed_words) WHERE guild.id=?1 AND json_each.value=?2;", -1, &stmt, NULL);
+        sqlite3_prepare(DB, "SELECT json_each.value FROM guilds, json_each(guilds.typed_words) WHERE guilds.id=?1 AND json_each.value=?2;", -1, &stmt, NULL);
         sqlite3_bind_int64(stmt, 1, event->guild_id);
         sqlite3_bind_text(stmt, 2, event->content, -1, SQLITE_STATIC);
         status = sqlite3_step(stmt);
         if (status == SQLITE_DONE) {
           sqlite3_finalize(stmt);
-          sqlite3_prepare(DB, "UPDATE guild SET last_user=?1, last_char=?2, typed_words=json_insert(guild.typed_words, '$[#]', ?3) WHERE id=?4", -1, &stmt, NULL);
-          sqlite3_bind_int64(stmt, 1, event->author->id);
-          sqlite3_bind_int(stmt, 2, event->content[strlen(event->content) - 1]);
-          sqlite3_bind_text(stmt, 3, event->content, -1, SQLITE_STATIC);
-          sqlite3_bind_int64(stmt, 4, event->guild_id);
-          sqlite3_step(stmt);
-          discord_create_reaction(client, event->channel_id, event->id, 0, "✅", NULL);
+          sqlite3_prepare(DB, "SELECT word FROM words WHERE word=?1;", -1, &stmt, NULL);
+          sqlite3_bind_text(stmt, 1, event->content, -1, SQLITE_STATIC);
+          status = sqlite3_step(stmt);
+          if (status == SQLITE_ROW) {
+            sqlite3_finalize(stmt);
+            sqlite3_prepare(DB, "UPDATE guilds SET last_user=?1, last_char=?2, typed_words=json_insert(guilds.typed_words, '$[#]', ?3) WHERE id=?4", -1, &stmt, NULL);
+            sqlite3_bind_int64(stmt, 1, event->author->id);
+            sqlite3_bind_int(stmt, 2, event->content[strlen(event->content) - 1]);
+            sqlite3_bind_text(stmt, 3, event->content, -1, SQLITE_STATIC);
+            sqlite3_bind_int64(stmt, 4, event->guild_id);
+            sqlite3_step(stmt);
+            discord_create_reaction(client, event->channel_id, event->id, 0, "✅", NULL);
+          } else if (status == SQLITE_DONE) {
+            struct discord_create_message create_params = {
+              .content = "Such word doesn't exist",
+              .message_reference = &reference
+            };
+            discord_create_reaction(client, event->channel_id, event->id, 0, "❌", NULL);
+            discord_create_message(client, event->channel_id, &create_params, NULL);
+          }
         } else {
           struct discord_create_message create_params = {
             .content = "This word was already entered",
@@ -263,55 +268,61 @@ int main(void) {
   sqlite3_enable_load_extension(DB, 1);
   sqlite3_load_extension(DB, "./json1", NULL, NULL);
 
-  char *err_msg;
-
-  const char* stmt = "CREATE TABLE IF NOT EXISTS guild ("
-    "id INTEGER NOT NULL PRIMARY KEY,"
-    "channel INTEGER,"
-    "last_user INTEGER,"
-    "last_char INTEGER,"
-    "started BOOLEAN,"
-    "typed_words TEXT"
-    ");";
-
-  status = sqlite3_exec(DB, stmt, NULL, NULL, &err_msg);
-
-  if (status != SQLITE_OK) {
-    log_error(err_msg);
-    sqlite3_free(err_msg);
+  sqlite3_stmt* stmt;
+  sqlite3_prepare(DB, "CREATE TABLE IF NOT EXISTS guilds(id INTEGER NOT NULL PRIMARY KEY, channel INTEGER, last_user INTEGER, last_char INTEGER, started BOOLEAN, typed_words TEXT);", -1, &stmt, NULL);
+  status = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  if (status != SQLITE_DONE) {
+    log_error("%d", status);
     sqlite3_close(DB);
     return 1;
   }
 
-  log_info("Loading dictionary");
-  FILE* dict = fopen("words.txt", "r");
 
-  if (dict == NULL) {
-    log_error("Failed to load words.txt");
-    sqlite3_free(err_msg);
+  sqlite3_prepare(DB, "CREATE TABLE IF NOT EXISTS words(word TEXT PRIMARY KEY);", -1, &stmt, NULL);
+  status = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  if (status != SQLITE_DONE) {
+    log_error("%d", status);
     sqlite3_close(DB);
     return 1;
   }
 
-  char* line = NULL;
-  ssize_t read;
-  size_t len = 0;
-  struct dict* d;
+  sqlite3_prepare(DB, "SELECT word FROM words LIMIT 1;", -1, &stmt, NULL);
+  status = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+  if (status == SQLITE_DONE) {
+    log_info("Loading dictionary");
+    FILE* dict = fopen("words.txt", "r");
 
-  while ((read = getline(&line, &len, dict)) != -1) {
-    d = malloc(sizeof(struct dict));
-    if (line[read - 1] = '\n') {
-      line[read - 1] = '\0';
-      read--;
+    if (dict == NULL) {
+      log_error("Failed to load words.txt");
+      sqlite3_close(DB);
+      return 1;
     }
-    d->key = malloc(sizeof(char) * (read + 1));
-    strncpy(d->key, line, read + 1);
-    HASH_ADD_KEYPTR(hh, dictionary, d->key, read, d);
+
+    char* line = NULL;
+    ssize_t read;
+    size_t len = 0;
+
+    sqlite3_stmt* stmt;
+    while ((read = getline(&line, &len, dict)) != -1) {
+      if (line[read - 1] = '\n') {
+        line[read - 1] = '\0';
+        read--;
+      }
+      sqlite3_prepare(DB, "INSERT INTO words(word) VALUES(?1)", -1, &stmt, NULL);
+      sqlite3_bind_text(stmt, 1, line, -1, SQLITE_STATIC);
+      sqlite3_step(stmt);
+      sqlite3_finalize(stmt);
+    }
+
+    if (line)
+      free(line);
+
+  } else if (status == SQLITE_ROW) {
+    log_info("dictionary is already loaded");
   }
-
-  if (line)
-    free(line);
-
 
   struct discord *client = discord_init(TOKEN);
   discord_add_intents(client, DISCORD_GATEWAY_MESSAGE_CONTENT);
@@ -321,7 +332,6 @@ int main(void) {
 
   log_info("Starting bot");
   discord_run(client);
-  sqlite3_free(err_msg);
   sqlite3_close(DB);
 
   return 0;
