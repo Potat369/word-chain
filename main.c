@@ -11,7 +11,7 @@
 sqlite3 *DB;
 
 void on_ready(struct discord *client, const struct discord_ready *event) {
-  struct discord_create_guild_application_command set_channel = {
+  struct discord_create_global_application_command set_channel = {
     .name = "set_channel",
     .description = "Sets channel for the game. ⚠️WARNING ⚠️ This will erase channel's topic.",
     .options = &(struct discord_application_command_options) {
@@ -31,19 +31,19 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     },
   };
 
-  struct discord_create_guild_application_command start_params = {
+  struct discord_create_global_application_command start_params = {
     .name = "start",
     .description = "Starts the game in previously specified channel",
   };
 
-  struct discord_create_guild_application_command stop_params = {
+  struct discord_create_global_application_command stop_params = {
     .name = "stop",
     .description = "Stops the game",
   };
 
-  discord_create_guild_application_command(client, event->application->id, GUILD_ID, &set_channel, NULL);
-  discord_create_guild_application_command(client, event->application->id, GUILD_ID, &start_params, NULL);
-  discord_create_guild_application_command(client, event->application->id, GUILD_ID, &stop_params, NULL);
+  discord_create_global_application_command(client, event->application->id, &set_channel, NULL);
+  discord_create_global_application_command(client, event->application->id, &start_params, NULL);
+  discord_create_global_application_command(client, event->application->id, &stop_params, NULL);
 }
 
 void on_interaction_create(struct discord *client, const struct discord_interaction *event) {
@@ -215,7 +215,7 @@ void on_message_create(struct discord* client, const struct discord_message *eve
             discord_create_reaction(client, event->channel_id, event->id, 0, "✅", NULL);
           } else if (status == SQLITE_DONE) {
             struct discord_create_message create_params = {
-              .content = "Such word doesn't exist",
+              .content = "Not found in dictionary",
               .message_reference = &reference
             };
             discord_create_reaction(client, event->channel_id, event->id, 0, "❌", NULL);
@@ -223,14 +223,14 @@ void on_message_create(struct discord* client, const struct discord_message *eve
           }
         } else {
           struct discord_create_message create_params = {
-            .content = "This word was already entered",
+            .content = "Was already entered",
             .message_reference = &reference
           };
           discord_create_reaction(client, event->channel_id, event->id, 0, "❌", NULL);
           discord_create_message(client, event->channel_id, &create_params, NULL);
         }
       } else {
-        char content[] = "Must start with: `%`";
+        char content[] = "Must begin with: `%`";
         content[sizeof(content) / sizeof(char) - 3] = last_char;
         struct discord_create_message create_params = {
           .content = content,
@@ -241,7 +241,7 @@ void on_message_create(struct discord* client, const struct discord_message *eve
       }
     } else {
       struct discord_create_message create_params = {
-        .content = "Not a valid word",
+        .content = "Invalid word",
         .message_reference = &reference
       };
       discord_create_reaction(client, event->channel_id, event->id, 0, "❌", NULL);
