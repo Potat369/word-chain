@@ -16,6 +16,7 @@
           concord
           sqlite
         ];
+        packages = with pkgs; [ sqlite-web ];
       };
     };
 }
