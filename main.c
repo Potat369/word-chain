@@ -11,6 +11,18 @@
 sqlite3 *DB;
 uint64_t GUILD_ID = 0;
 
+void cleanup_commands(struct discord *client, struct discord_response *res, const struct discord_application_commands* ret) {
+  for (int i = 0; i < ret->size; i++) {
+    if (strcmp(ret->array[i].name, "set_channel") == 0) {
+      if (GUILD_ID == 0) {
+        discord_delete_global_application_command(client, ret->array[i].application_id, ret->array[i].id, NULL);
+      } else {
+        discord_delete_guild_application_command(client, ret->array[i].application_id, GUILD_ID, ret->array[i].id, NULL);
+      }
+    } 
+  }
+}
+
 void on_ready(struct discord *client, const struct discord_ready *event) {
   // For seamless restart
   char* KILL_ON_START = getenv("KILL_ON_START");
@@ -51,10 +63,18 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &set_channel, NULL);
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &start_params, NULL);
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &stop_params, NULL);
+
+    discord_get_guild_application_commands(client, event->application->id, GUILD_ID, &(struct discord_ret_application_commands){
+      .done = cleanup_commands,
+    });
   } else {
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&set_channel, NULL);
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&start_params, NULL);
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&stop_params, NULL);
+
+    discord_get_global_application_commands(client, event->application->id, &(struct discord_ret_application_commands){
+      .done = cleanup_commands,
+    });
   }
 }
 
