@@ -11,6 +11,15 @@
 sqlite3 *DB;
 uint64_t GUILD_ID = 0;
 
+int num_digits(int num) {
+  static int count = 0;
+  if (num > 0) {
+    count++;
+    num_digits(num / 10);
+  }
+  return count;
+}
+
 void cleanup_commands(struct discord *client, struct discord_response *res, const struct discord_application_commands* ret) {
   for (int i = 0; i < ret->size; i++) {
     if (strcmp(ret->array[i].name, "set_channel") == 0) {
@@ -59,10 +68,16 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     .description = "Stops the game",
   };
 
+  struct discord_create_guild_application_command typed_words_count_params = {
+    .name = "typed_words_count",
+    .description = "Shows how many words you've typed along the game",
+  };
+
   if (GUILD_ID != 0) {
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &set_channel, NULL);
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &start_params, NULL);
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &stop_params, NULL);
+    discord_create_guild_application_command(client, event->application->id, GUILD_ID, &typed_words_count_params, NULL);
 
     discord_get_guild_application_commands(client, event->application->id, GUILD_ID, &(struct discord_ret_application_commands){
       .done = cleanup_commands,
@@ -71,6 +86,7 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&set_channel, NULL);
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&start_params, NULL);
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&stop_params, NULL);
+    discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&typed_words_count_params, NULL);
 
     discord_get_global_application_commands(client, event->application->id, &(struct discord_ret_application_commands){
       .done = cleanup_commands,
@@ -175,6 +191,27 @@ void on_interaction_create(struct discord *client, const struct discord_interact
       }
     };
     discord_create_interaction_response(client, event->id, event->token, &response_params, NULL);
+  } else if (strcmp(event->data->name, "typed_words_count") == 0) {
+    sqlite3_stmt * stmt;
+    sqlite3_prepare(DB, "SELECT json_array_length(typed_words) FROM guilds WHERE id=?1;", -1, &stmt, NULL);
+    sqlite3_bind_int64(stmt, 1, event->guild_id);
+    int status = sqlite3_step(stmt);
+    int count = sqlite3_column_int(stmt, 0);
+
+    const char message[] = "Amount of words you've entered is: `%d`";
+    char* message_buffer = malloc(sizeof(char) * num_digits(count) + (sizeof(message) / sizeof(char) - 2));
+
+    sprintf(message_buffer, message, count);
+    struct discord_interaction_response response_params = {
+      .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+      .data = &(struct discord_interaction_callback_data){ 
+        .content = message_buffer,
+      }
+    };
+
+    discord_create_interaction_response(client, event->id, event->token, &response_params, NULL);
+
+    sqlite3_finalize(stmt);
   }
 }
 
