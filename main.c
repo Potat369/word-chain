@@ -5,12 +5,19 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <signal.h>
 
 #define GUILD_ID 1380548465909698651
 
 sqlite3 *DB;
 
 void on_ready(struct discord *client, const struct discord_ready *event) {
+  // For seamless restart
+  char* KILL_ON_START = getenv("KILL_ON_START");
+  if (KILL_ON_START != NULL) {
+    kill(atoi(KILL_ON_START), SIGTERM);
+  }
+
   struct discord_create_global_application_command set_channel = {
     .name = "set_channel",
     .description = "Sets channel for the game. ⚠️WARNING ⚠️ This will erase channel's topic.",
@@ -49,7 +56,6 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
 void on_interaction_create(struct discord *client, const struct discord_interaction *event) {
   if (event->type != DISCORD_INTERACTION_APPLICATION_COMMAND)
     return;
-
 
   if (strcmp(event->data->name, "set_channel") == 0) {
     if (!event->data || !event->data->options) 
