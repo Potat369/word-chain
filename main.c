@@ -1,15 +1,15 @@
 #include <concord/discord.h>
 #include <concord/log.h>
 #include <sqlite3.h>
+
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <signal.h>
 
-#define GUILD_ID 1380548465909698651
-
 sqlite3 *DB;
+uint64_t GUILD_ID = 0;
 
 void on_ready(struct discord *client, const struct discord_ready *event) {
   // For seamless restart
@@ -28,7 +28,6 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
           .type = DISCORD_APPLICATION_OPTION_CHANNEL,
           .name = "channel",
           .description = "Channel",
-          .required = true,
           .channel_types = &(struct integers) {
             .size = 1,
             .array = (int[]) { DISCORD_CHANNEL_GUILD_TEXT },
@@ -38,19 +37,25 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     },
   };
 
-  struct discord_create_global_application_command start_params = {
+  struct discord_create_guild_application_command start_params = {
     .name = "start",
-    .description = "Starts the game in previously specified channel",
+    .description = "Starts the game. Set up using /configure command",
   };
 
-  struct discord_create_global_application_command stop_params = {
+  struct discord_create_guild_application_command stop_params = {
     .name = "stop",
     .description = "Stops the game",
   };
 
-  discord_create_global_application_command(client, event->application->id, &set_channel, NULL);
-  discord_create_global_application_command(client, event->application->id, &start_params, NULL);
-  discord_create_global_application_command(client, event->application->id, &stop_params, NULL);
+  if (GUILD_ID != 0) {
+    discord_create_guild_application_command(client, event->application->id, GUILD_ID, &set_channel, NULL);
+    discord_create_guild_application_command(client, event->application->id, GUILD_ID, &start_params, NULL);
+    discord_create_guild_application_command(client, event->application->id, GUILD_ID, &stop_params, NULL);
+  } else {
+    discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&set_channel, NULL);
+    discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&start_params, NULL);
+    discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&stop_params, NULL);
+  }
 }
 
 void on_interaction_create(struct discord *client, const struct discord_interaction *event) {
@@ -191,7 +196,7 @@ void on_message_create(struct discord* client, const struct discord_message *eve
       .guild_id = event->guild_id,
       .fail_if_not_exists = true
     };
-    if (last_user == event->author->id) {
+    if (GUILD_ID == 0 && last_user == event->author->id) {
       struct discord_create_message create_params = {
         .content = "Not your turn",
         .message_reference = &reference
@@ -262,6 +267,16 @@ int main(void) {
   if (TOKEN == NULL) {
     log_error("Missing TOKEN env variable");
     return 1;
+  }
+
+  const char* GUILD_ID_VAR = getenv("GUILD_ID");
+  if (GUILD_ID_VAR == NULL) {
+    log_info("GUILD_ID was not found");
+    log_info("Starting in release mode");
+  } else {
+    log_info("GUILD_ID was found");
+    log_info("Starting in development mode");
+    GUILD_ID = strtoull(GUILD_ID_VAR, NULL, 10);
   }
 
   int status = sqlite3_open("db.db", &DB);
