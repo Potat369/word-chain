@@ -18,7 +18,7 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     kill(atoi(KILL_ON_START), SIGTERM);
   }
 
-  struct discord_create_global_application_command set_channel = {
+  struct discord_create_guild_application_command set_channel = {
     .name = "set_channel",
     .description = "Sets channel for the game. ⚠️WARNING ⚠️ This will erase channel's topic.",
     .options = &(struct discord_application_command_options) {
