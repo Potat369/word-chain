@@ -39,9 +39,9 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     kill(atoi(KILL_ON_START), SIGTERM);
   }
 
-  struct discord_create_guild_application_command set_channel = {
-    .name = "set_channel",
-    .description = "Sets channel for the game. ⚠️WARNING ⚠️ This will erase channel's topic.",
+  struct discord_create_guild_application_command configure_params = {
+    .name = "configure",
+    .description = "Configures the game",
     .options = &(struct discord_application_command_options) {
       .size = 1,
       .array = (struct discord_application_command_option[]) {
@@ -74,7 +74,7 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
   };
 
   if (GUILD_ID != 0) {
-    discord_create_guild_application_command(client, event->application->id, GUILD_ID, &set_channel, NULL);
+    discord_create_guild_application_command(client, event->application->id, GUILD_ID, &configure_params, NULL);
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &start_params, NULL);
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &stop_params, NULL);
     discord_create_guild_application_command(client, event->application->id, GUILD_ID, &typed_words_count_params, NULL);
@@ -83,7 +83,7 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
       .done = cleanup_commands,
     });
   } else {
-    discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&set_channel, NULL);
+    discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&configure_params, NULL);
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&start_params, NULL);
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&stop_params, NULL);
     discord_create_global_application_command(client, event->application->id, (struct discord_create_global_application_command*)&typed_words_count_params, NULL);
