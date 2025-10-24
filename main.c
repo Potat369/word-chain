@@ -11,11 +11,11 @@
 sqlite3 *DB;
 uint64_t GUILD_ID = 0;
 
-int num_digits(int num) {
-  static int count = 0;
-  if (num > 0) {
+int num_digits(unsigned int num) {
+  int count = 1;
+  while (num >= 10) {
     count++;
-    num_digits(num / 10);
+    num /= 10;
   }
   return count;
 }
@@ -211,6 +211,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
 
     discord_create_interaction_response(client, event->id, event->token, &response_params, NULL);
 
+    free(message_buffer);
     sqlite3_finalize(stmt);
   }
 }
