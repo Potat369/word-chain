@@ -344,8 +344,6 @@ int main(void) {
     sqlite3_close(DB);
     return 1;
   }
-  sqlite3_enable_load_extension(DB, 1);
-  sqlite3_load_extension(DB, "./json1", NULL, NULL);
 
   sqlite3_stmt* stmt;
   sqlite3_prepare(DB, "CREATE TABLE IF NOT EXISTS guilds(id INTEGER NOT NULL PRIMARY KEY, channel INTEGER, last_user INTEGER, last_char INTEGER, started BOOLEAN, typed_words TEXT);", -1, &stmt, NULL);
