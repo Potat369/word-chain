@@ -231,7 +231,7 @@ bool isValidWord(char* str) {
 }
 
 void on_message_create(struct discord* client, const struct discord_message *event) {
-  if (event->author->bot == true || event->author->System == true) return;
+  if (event->author->bot == true || event->author->System == true || event->type != DISCORD_MESSAGE_DEFAULT) return;
 
   sqlite3_stmt *stmt;
   sqlite3_prepare(DB, "SELECT channel, last_user, last_char, started FROM guilds WHERE id=?1;", -1, &stmt, NULL);
