@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-sqlite3 *DB;
+sqlite3* DB;
 uint64_t GUILD_ID = 0;
 
 int num_digits(unsigned int num) {
@@ -20,7 +20,7 @@ int num_digits(unsigned int num) {
   return count;
 }
 
-void cleanup_commands(struct discord *client, struct discord_response *res, const struct discord_application_commands* ret) {
+void cleanup_commands(struct discord* client, struct discord_response* res, const struct discord_application_commands* ret) {
   for (int i = 0; i < ret->size; i++) {
     if (strcmp(ret->array[i].name, "set_channel") == 0) {
       if (GUILD_ID == 0) {
@@ -32,7 +32,7 @@ void cleanup_commands(struct discord *client, struct discord_response *res, cons
   }
 }
 
-void on_ready(struct discord *client, const struct discord_ready *event) {
+void on_ready(struct discord* client, const struct discord_ready* event) {
   // For seamless restart
   char* KILL_ON_START = getenv("KILL_ON_START");
   if (KILL_ON_START != NULL) {
@@ -94,7 +94,7 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
   }
 }
 
-void on_interaction_create(struct discord *client, const struct discord_interaction *event) {
+void on_interaction_create(struct discord* client, const struct discord_interaction* event) {
   if (event->type != DISCORD_INTERACTION_APPLICATION_COMMAND)
     return;
 
@@ -102,7 +102,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
     if (!event->data || !event->data->options) 
       return;
 
-    sqlite3_stmt *stmt;
+    sqlite3_stmt* stmt;
     sqlite3_prepare(DB, "INSERT INTO guilds (id, channel, typed_words) VALUES (?1, ?2, '[]') ON CONFLICT(id) DO UPDATE SET channel=?2;", -1, &stmt, NULL);
     sqlite3_bind_int64(stmt, 1, event->guild_id);
     sqlite3_bind_int64(stmt, 2, strtoull(event->data->options->array[0].value, NULL, 10));
@@ -124,7 +124,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
 
   } else if (strcmp(event->data->name, "start") == 0) {
 
-    sqlite3_stmt *stmt;
+    sqlite3_stmt* stmt;
     sqlite3_prepare(DB, "SELECT channel, started FROM guilds WHERE id=?1;", -1, &stmt, NULL);
     sqlite3_bind_int64(stmt, 1, event->guild_id);
     int status = sqlite3_step(stmt);
@@ -192,7 +192,7 @@ void on_interaction_create(struct discord *client, const struct discord_interact
     };
     discord_create_interaction_response(client, event->id, event->token, &response_params, NULL);
   } else if (strcmp(event->data->name, "typed_words_count") == 0) {
-    sqlite3_stmt * stmt;
+    sqlite3_stmt* stmt;
     sqlite3_prepare(DB, "SELECT json_array_length(typed_words) FROM guilds WHERE id=?1;", -1, &stmt, NULL);
     sqlite3_bind_int64(stmt, 1, event->guild_id);
     int status = sqlite3_step(stmt);
@@ -224,16 +224,13 @@ bool isValidWord(char* str) {
     }
     *c++;
   }
-  // struct dict* d;
-  // HASH_FIND_STR(dictionary, str, d);
-  // return d != NULL;
   return true;
 }
 
-void on_message_create(struct discord* client, const struct discord_message *event) {
+void on_message_create(struct discord* client, const struct discord_message* event) {
   if (event->author->bot == true || event->author->System == true || event->type != DISCORD_MESSAGE_DEFAULT) return;
 
-  sqlite3_stmt *stmt;
+  sqlite3_stmt* stmt;
   sqlite3_prepare(DB, "SELECT channel, last_user, last_char, started FROM guilds WHERE id=?1;", -1, &stmt, NULL);
   sqlite3_bind_int64(stmt, 1, event->guild_id);
   int status = sqlite3_step(stmt);
@@ -401,7 +398,7 @@ int main(void) {
     log_info("dictionary is already loaded");
   }
 
-  struct discord *client = discord_init(TOKEN);
+  struct discord* client = discord_init(TOKEN);
   discord_add_intents(client, DISCORD_GATEWAY_MESSAGE_CONTENT);
   discord_set_on_ready(client, &on_ready);
   discord_set_on_interaction_create(client, &on_interaction_create);
