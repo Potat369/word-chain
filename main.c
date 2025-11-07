@@ -398,6 +398,7 @@ int main(void) {
     log_info("dictionary is already loaded");
   }
 
+  srand(time(0));
   struct discord* client = discord_init(TOKEN);
   discord_add_intents(client, DISCORD_GATEWAY_MESSAGE_CONTENT);
   discord_set_on_ready(client, &on_ready);
