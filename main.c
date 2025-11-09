@@ -195,7 +195,7 @@ void on_interaction_create(struct discord* client, const struct discord_interact
     sqlite3_stmt* stmt;
     sqlite3_prepare(DB, "SELECT json_array_length(typed_words) FROM guilds WHERE id=?1;", -1, &stmt, NULL);
     sqlite3_bind_int64(stmt, 1, event->guild_id);
-    int status = sqlite3_step(stmt);
+    sqlite3_step(stmt);
     int count = sqlite3_column_int(stmt, 0);
 
     const char message[] = "Amount of words you've entered is: `%d`";
