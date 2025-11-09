@@ -217,12 +217,12 @@ void on_interaction_create(struct discord* client, const struct discord_interact
 }
 
 bool isValidWord(char* str) {
-  char* c = str;
-  while (*c) {
-    if (!isalpha(*c)) {
+  int i = 0;
+  while (str[i]) {
+    if (!isalpha(str[i])) {
       return false;
     }
-    *c++;
+    i++;
   }
   return true;
 }
