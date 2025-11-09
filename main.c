@@ -381,10 +381,13 @@ int main(void) {
 
     sqlite3_stmt* stmt;
     while ((read = getline(&line, &len, dict)) != -1) {
-      if (line[read - 1] = '\n') {
-        line[read - 1] = '\0';
+      if (line[read - 1] == '\r') {
         read--;
       }
+      if (line[read - 1] == '\n') {
+        read--;
+      }
+      line[read - 1] = '\0';
       sqlite3_prepare(DB, "INSERT INTO words(word) VALUES(?1)", -1, &stmt, NULL);
       sqlite3_bind_text(stmt, 1, line, -1, SQLITE_STATIC);
       sqlite3_step(stmt);
