@@ -1,0 +1,7 @@
+*
+!*.*
+!*/
+*.db
+.direnv/
+!makefile
+logs/
